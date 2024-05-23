@@ -4,16 +4,18 @@ const octokit = new Octokit({
   auth: 'random'
 });
 
-const owner = 'quizizz';
-const repo = 'ai-service';
-const branchName = 'test-branch';
-const filePath = 'src/services/questions/questions.service.ts';
-const commitMessage = 'Update service file';
-const prTitle = 'Update service file';
-const prBody = 'PR Body random';
-
-async function createPR() {
+async function createPR({
+  owner,
+  repo,
+  branchName,
+  commitMessage,
+  prTitle,
+  prBody,
+  files,
+}) {
   try {
+    const filePath = files[0].path;
+    
     const { data: repoData } = await octokit.repos.get({
       owner,
       repo
@@ -40,46 +42,8 @@ async function createPR() {
       path: filePath
     });
     const content = Buffer.from(fileData.content, 'base64').toString();
-    const newContent = `
-async newFunction(
-  body: summarizeQuestionInputBodyType,
-): Promise<Result<AIServiceResponse>> {
-  const { grades, subjects } = body.payload.quizDetails || {};
-
-  const question = getQuestionTextForAnswerExplanation(body.payload.question);
-
-  // Quiz Details handling
-  let gradeSuffix = '\nGrade: K-12';
-
-  let subjectSuffix = '';
-
-  const llmRequest: LLMRequest = {
-    prompt: {
-      template: SUMMARIZE_QUESTION_PROMPT_TEMPLATE,
-    },
-    templateVariables: {
-      question,
-      gradeSuffix,
-      subjectSuffix,
-    },
-    formatter: {
-      zodSchema: z.object(summarizeQuestionSchema),
-    },
-    modelParams: {
-      modelName: MODEL_NAMES.GPT_35_TURBO,
-      timeout: 60000,
-      temperature: 0,
-      ...body.modelParams,
-    },
-    requestMeta: {
-      eventName: 'summarizeQuestion',
-      ...body.meta,
-    },
-  };
-  return this.llmService.handle(llmRequest);
-}
-    `;
-    const updatedContent = content.slice(0, content.length - 2) + newContent + '}\n}';
+    const newContent = files[0].content;
+    const updatedContent = content.slice(0, content.length - 1) + "\n" + newContent + '\n}';
 
     await octokit.repos.createOrUpdateFileContents({
       owner,
@@ -101,9 +65,13 @@ async newFunction(
     });
 
     console.log(`Pull Request created: ${prData.html_url}`);
+
+    return prData.html_url;
   } catch (error) {
     console.error(`Error creating PR: ${error.message}`);
   }
 }
 
-createPR();
+module.exports = {
+  createPR
+};

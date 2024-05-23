@@ -4,11 +4,21 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch Program",
+      "name": "Launch PR creator",
       "skipFiles": [
         "<node_internals>/**"
       ],
       "program": "${workspaceFolder}/index.js",
+      "runtimeVersion": "18"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch server",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "program": "${workspaceFolder}/express.js",
       "runtimeVersion": "18"
     },
   ]
