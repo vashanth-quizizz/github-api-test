@@ -215,8 +215,6 @@ async function createPR({
       fileObj: files.code.service,
     });
 
-    return '';
-
     const { data: prData } = await octokit.pulls.create({
       owner,
       repo,
