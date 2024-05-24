@@ -10,7 +10,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/create-pr', async (req, res) => {
-  const inputParams = ['owner', 'repo', 'branchName', 'commitMessage', 'prTitle', 'prBody', 'files'];
+  const inputParams = ['owner', 'repo', 'branchName', 'prTitle', 'prBody', 'files'];
 
   for (const param of inputParams) {
     if (!req.body[param]) {
@@ -40,6 +40,6 @@ app.post('/create-pr', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
+app.listen(process.env.PORT || port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
