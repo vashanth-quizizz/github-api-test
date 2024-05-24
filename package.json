@@ -3,6 +3,6 @@
     "@octokit/rest": "^20.1.1",
     "cors": "^2.8.5",
     "express": "^4.19.2",
-    "firebase": "^10.12.1"
+    "openai": "^4.47.1"
   }
 }
