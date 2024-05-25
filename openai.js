@@ -11,209 +11,10 @@ async function generate_code(input) {
     Task: Given a question, summarize the question and return the notice and wonder for correct and incorrect answers.
     Input Variables: question (query, options, answer, type), quizDetails (grades, subjects)
     Output Variables: correct (notice - Notice for correct answer, wonder - Wonder for correct answer), incorrect (notice - Notice for incorrect answer, wonder - Wonder for incorrect answer)
-    Names:
-    - Route: POST /questions/summarize-question 
-    - Controller: summarizeQuestion
-    - Service: summarizeQuestion.
-    - DTO: summarizeQuestionInput, summarizeQuestionInputBodyType, summarizeQuestionOutputBodyType
-    - Prompt: SUMMARIZE_QUESTION_PROMPT_TEMPLATE
-    Files:
-    - Route: src/routes/http/index.ts
-    - Controller: src/controllers/questions.controller.ts
-    - Service: src/services/questions/questions.service.ts
-    - DTO: src/services/questions/questions.dtos.ts
-    - Prompt: src/services/questions/prompts.ts
-    
-    DTO:
-    \`\`\`ts
-    // Input Variables: question (query, options, answer, type), quizDetails (grades, subjects)
-    const summarizeQuestionInput = {
-      body: z.object({
-        payload: z.object({
-          question: z.object({
-            query: z.string(),
-            options: z.any().optional(),
-            answer: z.any(),
-            type: z.string(),
-          }),
-          quizDetails: z.object({
-            grades: z.array(z.string()).optional(),
-            subjects: z.array(z.string()).optional(),
-          }),
-        }),
-        modelParams: ModelParamsSchema,
-        meta: RequestMetaSchema,
-      }),
-    };
-    
-    export type summarizeQuestionInputBodyType = z.infer<
-      typeof summarizeQuestionInput.body
-    >;
-    
-    // Output Variables: correct (notice - Notice for correct answer, wonder - Wonder for correct answer), incorrect (notice - Notice for incorrect answer, wonder - Wonder for incorrect answer)
-    export const summarizeQuestionOutputBodyType = {
-      correct: z
-        .object({
-          notice: z.string().describe('Notice for correct answer'),
-          wonder: z.string().describe('Wonder for correct answer'),
-        })
-        .describe('Notice-wonder block for correct answer'),
-      incorrect: z
-        .object({
-          notice: z.string().describe('Notice for incorrect answer'),
-          wonder: z.string().describe('Wonder for incorrect answer'),
-        })
-        .describe('Notice-wonder block for incorrect answer'),
-    };
-    \`\`\`
-    
-    Prompt:
-    \`\`\`ts
-    export const SUMMARIZE_QUESTION_PROMPT_TEMPLATE =
-      'Notice and Wonder are fun and engaging ways to spark the sense of curiosity that leads students to understand that what they have learnt is everywhere!' +
-      '\\nBy asking "What do you notice? What do you think?" We help our students see problems in big-picture ways.' +
-      '\\nSelf-confidence, reflective skills, and engagement soar, and students discover that the goal is not to be "over and done," but to discover multiple strategies for tackling a problem.' +
-      '\\nFor the question given below, create 1 notice and 1 wonder for a student who has just finished attempting this quiz.' +
-      '\\nIt should explain the concept in the question properly to the student irrespective of whether they did it correct or incorrect.' +
-      "\\nCreate notice and wonder for both cases if the student's answer is correct and incorrect" +
-      "\\nDo not assume the student's answer choice or mention the correct/incorrect answer in the output." +
-      '{questionPartialPrompt}' +
-      '{gradePartialPrompt}' +
-      '{subjectPartialPrompt}' +
-      '\\nFor each notice and wonder point, go into depth and explain about the concept of the question and what the student could learn more from the question' +
-      "\\nBe creative. Don't be too professional. Be casual and relatable" +
-      '\\nProvide a summary. Use emojis wherever relevant.' +
-      '\\nYou cannot use the provided options in the output generated' +
-      '\\n{formatInstructions}';
-    \`\`\`
-    
-    Import in Service:
-    \`\`\`ts
-    import { SUMMARIZE_QUESTION_PROMPT_TEMPLATE } from './prompts';
-    import {  summarizeQuestionInputBodyType, summarizeQuestionOutputBodyType } from './questions.dtos';
-    \`\`\`
-    
-    Inside Interface of Service:
-    \`\`\`ts
-        summarizeQuestion(
-            body: summarizeQuestionInputBodyType,
-        ): Promise<Result<AIServiceResponse>>;
-    \`\`\`
-    
-    Inside Service:
-    \`\`\`ts
-        async summarizeQuestion(
-            body: summarizeQuestionInputBodyType,
-            ): Promise<Result<AIServiceResponse>> {
-            const { grades, subjects } = body.payload.quizDetails || {};
-            
-            let questionPartialPrompt = \`\\nQuestion Details:\\n"""\nQuestion: \${body.payload.question.query}\`;
-            if (body.payload.question.options) {
-                questionPartialPrompt += \`\\nOptions: \${body.payload.question.options.join(', ')}\`;
-            }
-            if (body.payload.question.answer) {
-                questionPartialPrompt += \`\\nAnswer: \${body.payload.question.answer}\`;
-            }
-            if (body.payload.question.type) {
-                questionPartialPrompt += \`\\nType: \${body.payload.question.type}\`;
-            }
-            questionPartialPrompt += '\\n"""';
-    
-            // Quiz Details handling
-            let gradePartialPrompt = '';
-            if (grades && grades.length) {
-                gradePartialPrompt = \`\\nGrade: \${grades.join(', ')}\`;
-            }
-    
-            let subjectPartialPrompt = '';
-            if (subjects && subjects.length) {
-                subjectPartialPrompt = \`\\nSubject: \${subjects.join(', ')}\`;
-            }
-    
-            const llmRequest: LLMRequest = {
-                prompt: {
-                    template: SUMMARIZE_QUESTION_PROMPT_TEMPLATE,
-                },
-                templateVariables: {
-                    questionPartialPrompt,
-                    gradePartialPrompt,
-                    subjectPartialPrompt,
-                },
-                formatter: {
-                    zodSchema: z.object(summarizeQuestionOutputBodyType),
-                },
-                modelParams: {
-                    modelName: MODEL_NAMES.GPT_35_TURBO,
-                    timeout: 60000,
-                    temperature: 0,
-                    ...body.modelParams,
-                },
-                requestMeta: {
-                    eventName: 'summarizeQuestion',
-                    ...body.meta,
-                },
-            };
-            return this.llmService.handle(llmRequest);
-        }
-    \`\`\`
-    
-    Import in Controller:
-    \`\`\`ts
-    import { summarizeQuestionInputBodyType } from '@app/services/questions/questions.dtos';
-    \`\`\`
-    
-    Controller:
-    \`\`\`ts
-      summarizeQuestion() {
-        const questionsService = this.questionsService;
-        return {
-          name: 'summarize-question-controller',
-          validate: (req: { body: summarizeQuestionInputBodyType }) => {
-            const {
-              body: {
-                payload: { question },
-              },
-            } = req;
-            if (!(question?.query || '').trim()) {
-              return {
-                error: {
-                  details: [{ message: 'question is empty' }],
-                },
-                value: req.body,
-              };
-            }
-            if (question?.answer === undefined || question?.answer === null) {
-              return {
-                error: {
-                  details: [{ message: 'answer is empty' }],
-                },
-                value: req.body,
-              };
-            }
-          },
-          async exec(req: { body: summarizeQuestionInputBodyType }) {
-            const data = await questionsService.summarizeQuestion(req.body);
-            return {
-              data,
-            };
-          },
-        };
-      }
-    \`\`\`
-    
-    Route:
-    \`\`\`ts
-    {
-        method: 'post',
-        route: '/questions/summarize-question',
-        middlewares: middlewares,
-        controller: this.questionsController.summarizeQuestion(),
-    }
-    \`\`\`
-    
-    Final Output:
+    Output:
     \`\`\`json
     {
+        'thought': 'Names:\n    - Route: POST /questions/summarize-question\n    - Controller: summarizeQuestion\n    - Service: summarizeQuestion.\n    - DTO: summarizeQuestionInput, summarizeQuestionInputBodyType, summarizeQuestionOutputBodyType\n    - Prompt: SUMMARIZE_QUESTION_PROMPT_TEMPLATE\nFiles:\n    - Route: src/routes/http/index.ts\n    - Controller: src/controllers/questions.controller.ts\n    - Service: src/services/questions/questions.service.ts\n    - DTO: src/services/questions/questions.dtos.ts\n    - Prompt: src/services/questions/prompts.ts'
         'route': {
             'file_path': 'src/routes/http/index.ts',
             'code': '{\n    method: 'post',\n    route: '/questions/summarize-question',\n    middlewares: middlewares,\n    controller: this.questionsController.summarizeQuestion(),\n}',
@@ -262,9 +63,11 @@ async function generate_code(input) {
     Make sure to create partial prompts for each variable and handle them in the service. The final prompt should look fine even if any of the partial prompts are empty.
     
     Given a task and input variables, the code generator will generate the required code for the route, controller, service, DTO and prompt. The code generator will also provide the final output in JSON format.
+    Make sure that the thought is specific to the below task, input and output variables. The route, controller, service, DTO and prompt should be created based on the thought and the task. Do not create it based on the example provided.
     Task: ${task_description}
     Input Variables: ${input_variables}
-    Output Variables: ${output_variables}`;
+    Output Variables: ${output_variables}
+    Output: `;
     const response = await openai.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
         model: 'gpt-4o',
