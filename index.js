@@ -9,8 +9,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.raw({ type: 'image/png', limit: '10mb' }));
 
 app.post('/create-pr', async (req, res) => {
-  console.log(req.body);
-  const inputParams = ['owner', 'repo', 'branchName', 'prTitle', 'prBody', 'files'];
+  const inputParams = ['files', 'task_description'];
 
   for (const param of inputParams) {
     if (!req.body[param]) {
@@ -21,13 +20,8 @@ app.post('/create-pr', async (req, res) => {
 
   try {
     const githubUrl = await createPR({
-      owner: req.body.owner,
-      repo: req.body.repo,
-      branchName: req.body.branchName,
-      commitMessage: req.body.commitMessage,
-      prTitle: req.body.prTitle,
-      prBody: req.body.prBody,
-      files: req.body.files
+      files: req.body.files,
+      task_description: req.body.task_description
     });
     return res.json({
       status: 'success',

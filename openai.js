@@ -1,7 +1,7 @@
 const OpenAI = require('openai');
 
 const openai = new OpenAI({
-    apiKey: 'random'
+    apiKey: 'placeholder'
 });
 
 async function generate_code(input) {
@@ -308,7 +308,23 @@ async function image_to_task(base64Image) {
   return JSON.parse(response.choices[0].message.content);
 }
 
+async function get_pr_info(task_description) {
+  const prompt = `
+    Task: I need a JSON object which has prTitle, prDescription and this should be generated based for this task: ${task_description}.
+    Context: I have a code generator that takes a detailed task description, input variables and output variables and creates a Github pull request for that task.
+  `;
+  const response = await openai.chat.completions.create({
+      messages: [{ role: 'user', content: prompt }],
+      model: 'gpt-4o',
+      temperature: 0,
+      response_format: { type: "json_object" },
+  });
+
+  return JSON.parse(response.choices[0].message.content);
+}
+ 
 module.exports = {
   generate_code,
   image_to_task,
+  get_pr_info,
 };

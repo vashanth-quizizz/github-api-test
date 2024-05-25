@@ -1,4 +1,6 @@
 const { Octokit } = require("@octokit/rest");
+const { v4: uuid } = require('uuid');
+const { get_pr_info } = require('./openai');
 
 let octokit;
 
@@ -11,10 +13,10 @@ async function writeToRoutes({
     path: fileObj.file_path,
   });
   const content = Buffer.from(fileData.content, 'base64').toString();
-  const searchString = 'return this.register(Router(),';
-  const insertIndex = content.indexOf(searchString);
+  const searchString = 'return this.register(Router(), [';
+  const insertIndex = content.indexOf(searchString) + searchString.length;
   const newContent = fileObj.code;
-  const updatedContent = `${content.slice(0, insertIndex)}\n${newContent}\n${content.slice(insertIndex)}`;
+  const updatedContent = `${content.slice(0, insertIndex)}\n${newContent},\n${content.slice(insertIndex)}`;
 
   await octokit.repos.createOrUpdateFileContents({
     owner,
@@ -43,7 +45,7 @@ async function writeToControllers({
   }
 
   if (fileObj.code.main) {
-    updatedContent = `${updatedContent.slice(0, updatedContent.length - 1)}\n${fileObj.code.main}\n}`;
+    updatedContent = `${updatedContent.slice(0, updatedContent.length - 2)}\n${fileObj.code.main}\n}`;
   }
 
   await octokit.repos.createOrUpdateFileContents({
@@ -119,12 +121,13 @@ async function writeToService({
   }
 
   if (fileObj.code.inside_interface) {
-    const insertIndex = updatedContent.indexOf('export interface IQuestionsService {');
+    const searchString = 'export interface IQuestionsService {';
+    const insertIndex = updatedContent.indexOf(searchString) + searchString.length;
     updatedContent = `${updatedContent.slice(0, insertIndex)}\n${fileObj.code.inside_interface}\n${updatedContent.slice(insertIndex)}`;
   }
 
   if (fileObj.code.inside_service) {
-    updatedContent = `${updatedContent.slice(0, updatedContent.length - 1)}\n${fileObj.code.inside_service}\n}`;
+    updatedContent = `${updatedContent.slice(0, updatedContent.length - 2)}\n${fileObj.code.inside_service}\n}`;
   }
 
   await octokit.repos.createOrUpdateFileContents({
@@ -141,22 +144,19 @@ async function writeToService({
 async function initOctoKit() {
   octokit = new Octokit({
 
-    auth: 'random',
+    auth: 'placeholder',
     request: {
       fetch,
     },
   });
 }
 
-async function createPR({
-  owner,
-  repo,
-  branchName,
-  prTitle,
-  prBody,
-  files,
-}) {
+async function createPR({ files, task_description }) {
   await initOctoKit();
+  const owner = 'quizizz';
+  const repo = 'ai-service';
+  const branchName = `use-case-${uuid()}`;
+  const { prTitle, prDescription } = await get_pr_info(task_description);
 
   try {
     const { data: repoData } = await octokit.repos.get({
@@ -164,7 +164,6 @@ async function createPR({
       repo,
     });
     const defaultBranch = repoData.default_branch;
-
     const { data: refData } = await octokit.git.getRef({
       owner,
       repo,
@@ -179,52 +178,20 @@ async function createPR({
       sha,
     });
 
-    await writeToRoutes({
-      owner,
-      repo,
-      branchName,
-      commitMessage: 'writing to routes',
-      fileObj: files.code.route,
-    });
-    await writeToControllers({
-      owner,
-      repo,
-      branchName,
-      commitMessage: 'writing to controllers',
-      fileObj: files.code.controller,
-    });
-    await writeToPrompt({
-      owner,
-      repo,
-      branchName,
-      commitMessage: 'writing to prompt',
-      fileObj: files.code.prompt,
-    });
-    await writeToDto({
-      owner,
-      repo,
-      branchName,
-      commitMessage: 'writing to dto',
-      fileObj: files.code.dto,
-    });
-    await writeToService({
-      owner,
-      repo,
-      branchName,
-      commitMessage: 'writing to service',
-      fileObj: files.code.service,
-    });
+    await writeToRoutes({ owner, repo, branchName, commitMessage: 'writing to routes', fileObj: files.code.route });
+    await writeToControllers({ owner, repo, branchName, commitMessage: 'writing to controllers', fileObj: files.code.controller });
+    await writeToPrompt({ owner, repo, branchName, commitMessage: 'writing to prompt', fileObj: files.code.prompt });
+    await writeToDto({ owner, repo, branchName, commitMessage: 'writing to dto', fileObj: files.code.dto });
+    await writeToService({ owner, repo, branchName, commitMessage: 'writing to service', fileObj: files.code.service });
 
     const { data: prData } = await octokit.pulls.create({
       owner,
       repo,
       title: prTitle,
-      body: prBody,
+      body: prDescription,
       head: branchName,
       base: defaultBranch,
     });
-
-    console.log(`Pull Request created: ${prData.html_url}`);
 
     return prData.html_url;
   } catch (error) {
