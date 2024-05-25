@@ -158,7 +158,7 @@ async function createPR({ files, task_description, image_url }) {
   const branchName = `use-case-${uuid()}`;
   const prInfo = await get_pr_info(task_description);
   const prTitle = prInfo.prTitle;
-  const prDescription = `${prInfo.prDescription}<br /><img src="${image_url}" alt="image" width="500" height="500">`;
+  const prDescription = `${prInfo.prDescription}<br /><br /><img src="${image_url}" alt="image" width="500" height="500">`;
 
   try {
     const { data: repoData } = await octokit.repos.get({
