@@ -151,12 +151,14 @@ async function initOctoKit() {
   });
 }
 
-async function createPR({ files, task_description }) {
+async function createPR({ files, task_description, image_url }) {
   await initOctoKit();
   const owner = 'quizizz';
   const repo = 'ai-service';
   const branchName = `use-case-${uuid()}`;
-  const { prTitle, prDescription } = await get_pr_info(task_description);
+  const prInfo = await get_pr_info(task_description);
+  const prTitle = prInfo.prTitle;
+  const prDescription = `${prInfo.prDescription}<br /><img src="${image_url}" alt="image" width="500" height="500">`;
 
   try {
     const { data: repoData } = await octokit.repos.get({
